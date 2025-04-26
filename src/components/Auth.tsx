@@ -17,7 +17,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,7 +24,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
-
 
   // Enhanced validation functions
   const validateEmail = (email: string): boolean => {
@@ -90,25 +88,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Google login failed');
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -127,90 +106,67 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
   
     try {
       if (isLogin) {
-        // LOGIN FLOW - Using raw SQL since standard auth won't work
-        const { data, error } = await supabase
-          .from('auth.users')
-          .select('*')
-          .eq('Email', email.trim())
-          .single();
-  
-        if (error || !data) {
-          throw new Error('Invalid login credentials');
-        }
-  
-        // Verify password (in a real app, compare hashed passwords)
-        if (data.password !== password) { // WARNING: Insecure in production
-          throw new Error('Invalid login credentials');
-        }
-  
-        // Manually create session
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: 'custom_' + data.UID, // Simplified token
-          refresh_token: 'custom_' + data.UID
+        // Login using Supabase Auth
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
         });
-  
-        if (sessionError) throw sessionError;
-  
-        onAuthSuccess();
+
+        if (error) throw error;
+
+        if (data.user) {
+          onAuthSuccess();
+        }
       } else {
-        // SIGNUP FLOW
-        console.log('Starting signup process...');
-        
-        // 1. Create user directly in your custom table
-        const { data, error } = await supabase
-          .from('auth.users')
-          .insert([
-            {
-              UID: generateUUID(), // You need to implement this
-              Email: email.trim(),
-              "Display name": fullName.trim(),
-              Phone: mobile.trim(),
-              Providers: 'email',
-              "Provider Type": 'email',
-              "Created at": new Date().toISOString(),
-              "Last sign in": new Date().toISOString(),
-              password: password // WARNING: Store hashed passwords in production
-            }
-          ])
-          .select();
-  
-        if (error) {
-          console.error('Signup error:', error);
-          throw error;
-        }
-  
-        console.log('User created:', data);
-  
-        // 2. Manually create session
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: 'custom_' + data[0].UID,
-          refresh_token: 'custom_' + data[0].UID
+        // First, sign up the user
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password,
         });
-  
-        if (sessionError) throw sessionError;
-  
+
+        if (signUpError) throw signUpError;
+
+        if (!authData.user?.id) {
+          throw new Error('User creation failed');
+        }
+
+        // Wait a short moment to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Then create the profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: email.trim(),
+            full_name: fullName.trim() || null,
+            phone: mobile.trim() || null,
+            is_admin: false // Never allow setting is_admin during signup
+          });
+
+        if (profileError) throw profileError;
+
         setSuccess('Registration successful! Redirecting...');
-        setShowApiKeySetup(true);
+        onAuthSuccess();
       }
     } catch (error) {
-      console.error('Complete error:', error);
-      setError(error instanceof Error ? 
-        error.message : 
-        'Authentication failed. Please try again.'
-      );
+      console.error('Authentication error:', error);
+      if (error instanceof Error && error.message.includes('rate_limit')) {
+        setError('Please wait a moment before trying again');
+      } else {
+        setError(error instanceof Error ? 
+          error.message : 
+          'Authentication failed. Please try again.'
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
-  
-  // Helper function to generate UUIDs
-  const generateUUID = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  };9
+
+  if (showApiKeySetup) {
+    return <ApiKeySetup onComplete={onAuthSuccess} returnUrl={returnUrl} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-white">
@@ -272,49 +228,27 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
                 </div>
               )}
 
-              {!isResetPassword && (
-                <button
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="w-full flex justify-center items-center py-3 px-4 mb-4 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 text-base font-medium transition-all duration-300"
-                >
-                  <img 
-                    src="https://www.google.com/favicon.ico" 
-                    alt="Google" 
-                    className="w-5 h-5 mr-2"
-                  />
-                  Continue with Google
-                </button>
-              )}
-
-              <div className="relative flex items-center my-6">
-                <div className="flex-grow border-t border-gray-300"></div>
-                <span className="flex-shrink mx-4 text-gray-500">or</span>
-                <div className="flex-grow border-t border-gray-300"></div>
-              </div>
-
               <form onSubmit={isResetPassword ? handlePasswordReset : handleSubmit} className="space-y-4">
-                    {!isLogin && !isResetPassword && (
-                      <div>
-                        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                          Full Name
-                        </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <User className="h-5 w-5 text-gray-400" />
-                          </div>
-                          <input
-                            id="fullName"
-                            type="text"
-                            required
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-all duration-300"
-                            placeholder="Enter your full name"
-                          />
-                        </div>
+                {!isLogin && !isResetPassword && (
+                  <div>
+                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
                       </div>
-                    )}
+                      <input
+                        id="fullName"
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-all duration-300"
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -425,22 +359,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
                             placeholder="Enter your mobile number"
                           />
                         </div>
-                      </div>
-                    )}
-
-                    {/* Admin registration toggle (only show on signup in development) */}
-                    {!isLogin && process.env.NODE_ENV === 'development' && (
-                      <div className="flex items-center">
-                        <input
-                          id="isAdmin"
-                          type="checkbox"
-                          checked={isAdmin}
-                          onChange={(e) => setIsAdmin(e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-700">
-                          Register as Admin (Development Only)
-                        </label>
                       </div>
                     )}
                   </>
