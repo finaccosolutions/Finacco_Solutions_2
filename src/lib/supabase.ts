@@ -15,17 +15,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storage: window.localStorage,
-    storageKey: 'supabase.auth.token',
     flowType: 'pkce',
+    storage: window.localStorage,
+    multiTab: true,
     debug: true,
     redirectTo: `${domain}/auth/callback`,
-    onAuthStateChange: (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        // Clear any auth-related storage
-        window.localStorage.removeItem('supabase.auth.token');
-        window.location.href = '/';
-      }
-    }
+    emailRedirectTo: `${domain}/auth/callback`,
+  },
+  db: {
+    schema: 'public'
   }
 });
