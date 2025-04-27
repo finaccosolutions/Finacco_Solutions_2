@@ -172,13 +172,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
           password: password,
         });
 
-        if (error) {
-          // Enhanced error handling for login failures
-          if (error.message.includes('Invalid login credentials')) {
-            throw new Error('Incorrect email or password. Please try again or use the "Forgot Password" link below.');
-          }
-          throw error;
-        }
+        if (error) throw error;
 
         if (data.user) {
           // Check if user has API key
@@ -215,13 +209,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
           }
         });
 
-        if (signUpError) {
-          // Enhanced error handling for signup failures
-          if (signUpError.message.includes('already registered')) {
-            throw new Error('An account with this email already exists. Please sign in instead.');
-          }
-          throw signUpError;
-        }
+        if (signUpError) throw signUpError;
 
         if (authData.session === null) {
           setConfirmationEmailSent(true);
@@ -248,14 +236,13 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
       }
     } catch (error) {
       console.error('Authentication error:', error);
-      if (error instanceof Error) {
-        if (error.message.includes('rate_limit')) {
-          setError('Too many attempts. Please wait a moment before trying again.');
-        } else {
-          setError(error.message);
-        }
+      if (error instanceof Error && error.message.includes('rate_limit')) {
+        setError('Please wait a moment before trying again');
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError(error instanceof Error ? 
+          error.message : 
+          'Authentication failed. Please try again.'
+        );
       }
     } finally {
       setLoading(false);
