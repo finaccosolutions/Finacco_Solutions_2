@@ -204,6 +204,11 @@ const Navbar: React.FC = () => {
     </div>
   );
 
+  const navigationItems = ['home', 'services', 'about', 'contact'];
+  if (user) {
+    navigationItems.push('tax-assistant');
+  }
+
   return (
     <>
       <header 
@@ -219,26 +224,17 @@ const Navbar: React.FC = () => {
           </Link>
           
           <nav className="hidden md:flex items-center space-x-8">
-            {['home', 'services', 'about', 'contact'].map((item) => (
+            {navigationItems.map((item) => (
               <button 
                 key={item}
-                onClick={() => scrollToSection(item)} 
-                className="text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
+                onClick={() => item === 'tax-assistant' ? navigate('/tax-assistant') : scrollToSection(item)} 
+                className="text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10 flex items-center"
               >
-                {item.charAt(0).toUpperCase() + item.slice(1)}
+                {item === 'tax-assistant' && <Brain size={20} className="mr-2" />}
+                {item === 'tax-assistant' ? 'Tax AI Assistant' : item.charAt(0).toUpperCase() + item.slice(1)}
                 <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-white transform -translate-x-1/2 group-hover:w-full transition-all duration-300"></span>
               </button>
             ))}
-            
-            {user && (
-              <Link 
-                to="/tax-assistant"
-                className="flex items-center space-x-2 text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
-              >
-                <Brain size={20} />
-                <span>Tax AI Assistant</span>
-              </Link>
-            )}
 
             <AccountMenu />
           </nav>
@@ -270,26 +266,23 @@ const Navbar: React.FC = () => {
           </button>
         </div>
         <nav className="flex flex-col space-y-6 px-8 py-8">
-          {['home', 'services', 'about', 'contact'].map((item) => (
+          {navigationItems.map((item) => (
             <button 
               key={item}
-              onClick={() => scrollToSection(item)} 
-              className="text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+              onClick={() => {
+                if (item === 'tax-assistant') {
+                  navigate('/tax-assistant');
+                } else {
+                  scrollToSection(item);
+                }
+                setIsOpen(false);
+              }}
+              className="text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg flex items-center"
             >
-              {item.charAt(0).toUpperCase() + item.slice(1)}
+              {item === 'tax-assistant' && <Brain size={24} className="mr-2" />}
+              {item === 'tax-assistant' ? 'Tax AI Assistant' : item.charAt(0).toUpperCase() + item.slice(1)}
             </button>
           ))}
-          
-          {user && (
-            <Link 
-              to="/tax-assistant"
-              className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
-              onClick={() => setIsOpen(false)}
-            >
-              <Brain size={24} />
-              <span>Tax AI Assistant</span>
-            </Link>
-          )}
 
           {user ? (
             <>

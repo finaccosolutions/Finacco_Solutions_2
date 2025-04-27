@@ -33,22 +33,16 @@ const Account = () => {
         setLoading(true);
         setError(null);
 
-        // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          throw new Error('Authentication error. Please sign in again.');
-        }
+        if (sessionError) throw sessionError;
 
         if (!session) {
           navigate('/auth');
           return;
         }
 
-        // Get user data
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          throw new Error('Failed to fetch user data. Please try again.');
-        }
+        if (userError) throw userError;
 
         if (!user) {
           navigate('/auth');
@@ -58,7 +52,7 @@ const Account = () => {
         setUser(user);
 
         // Get profile data
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
@@ -97,21 +91,16 @@ const Account = () => {
           } else {
             throw profileError;
           }
-        } else if (profile) {
-          setProfile(profile);
+        } else if (profileData) {
+          setProfile(profileData);
           setFormData({
-            full_name: profile.full_name || '',
-            phone: profile.phone || ''
+            full_name: profileData.full_name || '',
+            phone: profileData.phone || ''
           });
         }
       } catch (error) {
         console.error('Error loading user data:', error);
         setError(error instanceof Error ? error.message : 'An unexpected error occurred');
-        
-        if (error instanceof Error && 
-            (error.message.includes('auth') || error.message.includes('session'))) {
-          setTimeout(() => navigate('/auth'), 2000);
-        }
       } finally {
         setLoading(false);
       }
@@ -208,7 +197,7 @@ const Account = () => {
             </Link>
             {profile?.is_admin && (
               <Link
-                to="/admin"
+                to="/admin/templates"
                 className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
               >
                 <Settings className="w-5 h-5 mr-2" />
