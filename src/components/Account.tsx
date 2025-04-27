@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Link, useNavigate } from 'react-router-dom';
-import { Home, Loader2, Save, AlertCircle, LogOut } from 'lucide-react';
+import { Home, Loader2, Save, AlertCircle, LogOut, Settings } from 'lucide-react';
 
 interface Profile {
   id: string;
   email: string;
   full_name: string | null;
   phone: string | null;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -73,7 +74,8 @@ const Account = () => {
                   id: user.id,
                   email: user.email,
                   full_name: user.user_metadata.full_name || '',
-                  phone: user.user_metadata.phone || ''
+                  phone: user.user_metadata.phone || '',
+                  is_admin: false
                 }
               ]);
 
@@ -196,13 +198,24 @@ const Account = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex justify-between items-center">
-          <Link
-            to="/"
-            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <Home className="w-5 h-5 mr-2" />
-            Back to Home
-          </Link>
+          <div className="flex items-center space-x-4">
+            <Link
+              to="/"
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <Home className="w-5 h-5 mr-2" />
+              Back to Home
+            </Link>
+            {profile?.is_admin && (
+              <Link
+                to="/admin"
+                className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <Settings className="w-5 h-5 mr-2" />
+                Admin Panel
+              </Link>
+            )}
+          </div>
           <button
             onClick={handleSignOut}
             className="flex items-center text-red-600 hover:text-red-700 transition-colors"
@@ -311,6 +324,9 @@ const Account = () => {
                       <div className="mt-2 text-sm text-gray-600 space-y-1">
                         <p>Account created: {new Date(profile?.created_at || '').toLocaleDateString()}</p>
                         <p>Last updated: {new Date(profile?.updated_at || '').toLocaleDateString()}</p>
+                        {profile?.is_admin && (
+                          <p className="text-blue-600">Administrator Account</p>
+                        )}
                       </div>
                     </div>
                   </div>
