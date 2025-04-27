@@ -7,6 +7,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+// Get the current domain for redirects
+const domain = window.location.origin;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -16,8 +19,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage,
     multiTab: false,
     debug: true,
-    redirectTo: `${window.location.origin}/auth/callback`,
-    emailRedirectTo: `${window.location.origin}/auth/callback`,
+    redirectTo: `${domain}/auth/callback`,
+    emailRedirectTo: `${domain}/auth/callback`,
   },
   db: {
     schema: 'public'

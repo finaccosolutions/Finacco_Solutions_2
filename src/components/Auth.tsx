@@ -38,7 +38,10 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
           setLoading(true);
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           
-          if (error) throw error;
+          if (error) {
+            navigate('/auth/confirmation/error');
+            return;
+          }
           
           if (data.user) {
             // Create or update profile
@@ -52,17 +55,15 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
                 updated_at: new Date().toISOString()
               });
 
-            if (profileError) throw profileError;
+            if (profileError) {
+              console.error('Profile update error:', profileError);
+            }
 
-            setSuccess('Email verified successfully! Redirecting...');
-            setTimeout(() => {
-              onAuthSuccess();
-              navigate(returnUrl || '/');
-            }, 1500);
+            navigate('/auth/confirmation/success');
           }
         } catch (error) {
           console.error('Verification error:', error);
-          setError('Failed to verify email. Please try again.');
+          navigate('/auth/confirmation/error');
         } finally {
           setLoading(false);
         }
@@ -70,7 +71,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     };
 
     handleEmailVerification();
-  }, [navigate, onAuthSuccess, returnUrl]);
+  }, [navigate]);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -14,6 +14,13 @@ serve(async (req) => {
     const { type, email, data } = await req.json();
 
     if (type === 'signup') {
+      // Extract the code from the confirmation URL
+      const url = new URL(data.confirmation_url);
+      const code = url.searchParams.get('token');
+      
+      // Create new confirmation URL with our custom route
+      const confirmationUrl = `${url.origin}/auth/callback?code=${code}`;
+
       const html = `
         <!DOCTYPE html>
         <html>
@@ -88,7 +95,7 @@ serve(async (req) => {
             </p>
             
             <div style="text-align: center; margin: 2rem 0;">
-              <a href="${data.confirmation_url}" class="button" style="color: white !important; text-decoration: none !important;">
+              <a href="${confirmationUrl}" class="button" style="color: white !important; text-decoration: none !important;">
                 Confirm Email Address
               </a>
             </div>
@@ -98,7 +105,7 @@ serve(async (req) => {
             </p>
             
             <div class="confirmation-url">
-              ${data.confirmation_url}
+              ${confirmationUrl}
             </div>
             
             <div class="footer">

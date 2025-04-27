@@ -11,6 +11,7 @@ import TaxAssistant from './components/TaxAssistant';
 import Auth from './components/Auth';
 import ApiKeySetup from './components/ApiKeySetup';
 import Account from './components/Account';
+import EmailConfirmation from './components/EmailConfirmation';
 import { supabase } from './lib/supabase';
 
 import DocumentTemplates from './pages/DocumentTemplates';
@@ -101,6 +102,18 @@ function App() {
           </>
         } />
         <Route path="/auth/callback" element={<Auth onAuthSuccess={() => null} />} />
+        <Route path="/auth/confirmation/success" element={
+          <EmailConfirmation 
+            success={true}
+            message="Your email has been successfully verified. You can now sign in to your account."
+          />
+        } />
+        <Route path="/auth/confirmation/error" element={
+          <EmailConfirmation 
+            success={false}
+            message="There was a problem verifying your email. Please try again or contact support."
+          />
+        } />
         <Route path="/account" element={
           <ProtectedRoute>
             <Account />
