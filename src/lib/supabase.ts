@@ -18,12 +18,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     debug: true,
     redirectTo: `${window.location.origin}/auth/callback`,
     emailRedirectTo: `${window.location.origin}/auth/callback`,
-    // Configure custom email template
-    emailAuth: {
-      email: {
-        confirmSignUpTemplateId: 'custom-email'
-      }
-    }
   },
   db: {
     schema: 'public'

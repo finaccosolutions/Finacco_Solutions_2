@@ -99,13 +99,13 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
     const isConfirmValid = !isLogin ? validateConfirmPassword(confirmPassword) : true;
-  
+
     if (!isEmailValid || !isPasswordValid || !isConfirmValid) {
       return;
     }
-  
+
     setLoading(true);
-  
+
     try {
       if (isLogin) {
         // Login using Supabase Auth
@@ -142,25 +142,25 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
           return;
         }
 
-        if (!authData.user?.id) {
-          throw new Error('User creation failed');
-        }
-
         // If we have a session, the user is confirmed
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email: email.trim(),
-            full_name: fullName.trim() || null,
-            phone: mobile.trim() || null,
-            is_admin: false
-          });
+        if (authData.user?.id) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: authData.user.id,
+              email: email.trim(),
+              full_name: fullName.trim() || null,
+              phone: mobile.trim() || null,
+              is_admin: false
+            }, {
+              onConflict: 'id'
+            });
 
-        if (profileError) throw profileError;
+          if (profileError) throw profileError;
 
-        setSuccess('Registration successful! Redirecting...');
-        onAuthSuccess();
+          setSuccess('Registration successful! Redirecting...');
+          onAuthSuccess();
+        }
       }
     } catch (error) {
       console.error('Authentication error:', error);

@@ -16,7 +16,6 @@ import DocumentTemplates from './pages/DocumentTemplates';
 import CreateDocument from './pages/CreateDocument';
 import DocumentTemplatesAdmin from './pages/admin/DocumentTemplatesAdmin';
 
-
 interface ProtectedRouteProps {
   children: React.ReactNode;
   adminOnly?: boolean;
@@ -101,6 +100,7 @@ function App() {
             <WhatsAppButton />
           </>
         } />
+        <Route path="/auth/callback" element={<Navigate to="/" replace />} />
         <Route path="/tax-assistant" element={
           <ProtectedRoute>
             <TaxAssistant />
@@ -127,10 +127,10 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/tax-assistant" element={
-            <ProtectedRoute>
-              <TaxAssistant />
-            </ProtectedRoute>
-          } />
+          <ProtectedRoute>
+            <TaxAssistant />
+          </ProtectedRoute>
+        } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
