@@ -33,24 +33,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
     const checkAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Error checking auth status:', error);
-          setIsAuthenticated(false);
-        } else {
-          setIsAuthenticated(!!session);
-          
-          if (session?.user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('is_admin')
-              .eq('id', session.user.id)
-              .single();
+        if (error) throw error;
+        
+        setIsAuthenticated(!!session);
+        
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single();
 
-            setIsAdmin(!!profile?.is_admin);
-          }
+          setIsAdmin(!!profile?.is_admin);
         }
-      } catch (err) {
-        console.error('Error in auth check:', err);
+      } catch (error) {
+        console.error('Error in auth check:', error);
         setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
@@ -85,7 +82,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to={`/auth?returnTo=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
   if (adminOnly && !isAdmin) {

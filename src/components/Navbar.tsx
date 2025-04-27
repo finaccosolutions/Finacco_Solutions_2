@@ -13,10 +13,11 @@ const Navbar: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const checkUser = async () => {
+    const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
@@ -31,13 +32,15 @@ const Navbar: React.FC = () => {
           setIsAdmin(!!profile?.is_admin);
         }
       } catch (error) {
-        console.error('Error checking user:', error);
+        console.error('Error checking auth status:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
-    
-    checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         const { data: profile } = await supabase
@@ -47,10 +50,15 @@ const Navbar: React.FC = () => {
           .single();
 
         setIsAdmin(!!profile?.is_admin);
+      } else {
+        setIsAdmin(false);
       }
+      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -76,12 +84,18 @@ const Navbar: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
       setShowAccountMenu(false);
+      setUser(null);
+      setIsAdmin(false);
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -115,13 +129,14 @@ const Navbar: React.FC = () => {
       <button
         onClick={() => setShowAccountMenu(!showAccountMenu)}
         className="flex items-center gap-2 text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
+        disabled={isLoading}
       >
         <User size={20} />
         <span>Account</span>
         <ChevronDown size={16} className={`transition-transform duration-300 ${showAccountMenu ? 'rotate-180' : ''}`} />
       </button>
 
-      {showAccountMenu && (
+      {showAccountMenu && !isLoading && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
           {user ? (
             <>
@@ -153,11 +168,12 @@ const Navbar: React.FC = () => {
               )}
               <button
                 onClick={handleSignOut}
-                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                disabled={isLoading}
+                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 disabled:opacity-50"
               >
                 <div className="flex items-center">
                   <LogOut className="w-4 h-4 mr-2" />
-                  <span>Sign Out</span>
+                  <span>{isLoading ? 'Signing out...' : 'Sign Out'}</span>
                 </div>
               </button>
             </>
@@ -287,7 +303,7 @@ const Navbar: React.FC = () => {
             </Link>
           )}
 
-          {user ? (
+          {!isLoading && (user ? (
             <>
               <div className="px-4 py-2 border-t border-white/10">
                 <p className="text-sm font-medium text-white truncate">{user.email}</p>
@@ -316,10 +332,11 @@ const Navbar: React.FC = () => {
                   handleSignOut();
                   setIsOpen(false);
                 }}
-                className="flex items-center space-x-2 text-xl text-red-300 hover:text-red-200 font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                disabled={isLoading}
+                className="flex items-center space-x-2 text-xl text-red-300 hover:text-red-200 font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg disabled:opacity-50"
               >
                 <LogOut size={24} />
-                <span>Sign Out</span>
+                <span>{isLoading ? 'Signing out...' : 'Sign Out'}</span>
               </button>
             </>
           ) : (
@@ -349,7 +366,7 @@ const Navbar: React.FC = () => {
                 <span>Admin Login</span>
               </Link>
             </>
-          )}
+          ))}
         </nav>
       </div>
 

@@ -161,7 +161,26 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
         if (error) throw error;
 
         if (data.user) {
-          onAuthSuccess();
+          // Check if user has API key
+          const { data: apiKeyData } = await supabase
+            .from('api_keys')
+            .select('gemini_key')
+            .eq('user_id', data.user.id)
+            .single();
+
+          if (apiKeyData?.gemini_key) {
+            // If user has API key, proceed with normal flow
+            onAuthSuccess();
+            const returnTo = new URLSearchParams(location.search).get('returnTo');
+            if (returnTo) {
+              navigate(returnTo);
+            } else {
+              navigate('/');
+            }
+          } else {
+            // If no API key, show API key setup
+            setShowApiKeySetup(true);
+          }
         }
       } else {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -198,7 +217,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
           if (profileError) throw profileError;
 
           setSuccess('Registration successful! Redirecting...');
-          onAuthSuccess();
+          setShowApiKeySetup(true);
         }
       }
     } catch (error) {

@@ -17,7 +17,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'pkce',
     storage: window.localStorage,
-    multiTab: false,
+    multiTab: true,
     debug: true,
     redirectTo: `${domain}/auth/callback`,
     emailRedirectTo: `${domain}/auth/callback`,
