@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { Link } from 'react-router-dom';
-import { Home, Loader2, Save, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Home, Loader2, Save, AlertCircle, LogOut } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -14,6 +14,7 @@ interface Profile {
 }
 
 const Account = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,17 @@ const Account = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setError('Failed to sign out');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -115,6 +127,13 @@ const Account = () => {
             <Home className="w-5 h-5 mr-2" />
             Back to Home
           </Link>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center text-red-600 hover:text-red-700 transition-colors"
+          >
+            <LogOut className="w-5 h-5 mr-2" />
+            Sign Out
+          </button>
         </div>
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">

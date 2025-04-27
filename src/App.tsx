@@ -13,6 +13,7 @@ import ApiKeySetup from './components/ApiKeySetup';
 import Account from './components/Account';
 import EmailConfirmation from './components/EmailConfirmation';
 import { supabase } from './lib/supabase';
+import AdminLogin from './pages/AdminLogin';
 
 import DocumentTemplates from './pages/DocumentTemplates';
 import CreateDocument from './pages/CreateDocument';
@@ -38,8 +39,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
           setIsAuthenticated(false);
         } else {
           setIsAuthenticated(!!session);
-          if (session?.user?.email?.endsWith('@finaccosolutions.com')) {
-            setIsAdmin(true);
+          
+          if (session?.user) {
+            // Check if user is admin
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('is_admin')
+              .eq('id', session.user.id)
+              .single();
+
+            if (!profileError && profile?.is_admin) {
+              setIsAdmin(true);
+            }
           }
         }
       } catch (err) {
@@ -52,10 +63,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
     
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);
-      if (session?.user?.email?.endsWith('@finaccosolutions.com')) {
-        setIsAdmin(true);
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', session.user.id)
+          .single();
+
+        setIsAdmin(!!profile?.is_admin);
       }
       setIsLoading(false);
     });
@@ -72,7 +89,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
   }
 
   if (!isAuthenticated) {
-    return <Auth onAuthSuccess={() => setIsAuthenticated(true)} returnUrl={location.pathname} />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   if (adminOnly && !isAdmin) {
@@ -101,6 +118,7 @@ function App() {
             <WhatsAppButton />
           </>
         } />
+        <Route path="/auth" element={<Auth onAuthSuccess={() => null} />} />
         <Route path="/auth/callback" element={<Auth onAuthSuccess={() => null} />} />
         <Route path="/auth/confirmation/success" element={
           <EmailConfirmation 
@@ -139,6 +157,7 @@ function App() {
             <CreateDocument />
           </ProtectedRoute>
         } />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/templates" element={
           <ProtectedRoute adminOnly>
             <DocumentTemplatesAdmin />

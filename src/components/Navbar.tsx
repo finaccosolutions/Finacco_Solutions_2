@@ -1,21 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, X, Brain, LogIn, UserPlus, LogOut, User, ChevronDown } from 'lucide-react';
+import { Menu, X, Brain, LogIn, UserPlus, LogOut, User, ChevronDown, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import Logo from './Logo';
 import Auth from './Auth';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: false
-    }
-  }
-);
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +11,7 @@ const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
@@ -30,14 +19,37 @@ const Navbar: React.FC = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single();
+
+          setIsAdmin(!!profile?.is_admin);
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
+      }
     };
     
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', session.user.id)
+          .single();
+
+        setIsAdmin(!!profile?.is_admin);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -74,9 +86,14 @@ const Navbar: React.FC = () => {
   }, []);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-    setShowAccountMenu(false);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/');
+      setShowAccountMenu(false);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   const scrollToSection = (id: string) => {
@@ -114,12 +131,36 @@ const Navbar: React.FC = () => {
                 <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
                 <p className="text-xs text-gray-500">Signed in</p>
               </div>
+              <Link
+                to="/account"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowAccountMenu(false)}
+              >
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  <span>My Profile</span>
+                </div>
+              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin/templates"
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setShowAccountMenu(false)}
+                >
+                  <div className="flex items-center">
+                    <Shield className="w-4 h-4 mr-2" />
+                    <span>Admin Panel</span>
+                  </div>
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
               >
-                <LogOut size={16} />
-                <span>Sign Out</span>
+                <div className="flex items-center">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  <span>Sign Out</span>
+                </div>
               </button>
             </>
           ) : (
@@ -127,25 +168,39 @@ const Navbar: React.FC = () => {
               <button
                 onClick={() => {
                   setIsLogin(true);
-                  navigate('/tax-assistant');
+                  navigate('/auth');
                   setShowAccountMenu(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
-                <LogIn size={16} />
-                <span>Sign In</span>
+                <div className="flex items-center">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  <span>Sign In</span>
+                </div>
               </button>
               <button
                 onClick={() => {
                   setIsLogin(false);
-                  navigate('/tax-assistant');
+                  navigate('/auth');
                   setShowAccountMenu(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
-                <UserPlus size={16} />
-                <span>Sign Up</span>
+                <div className="flex items-center">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  <span>Sign Up</span>
+                </div>
               </button>
+              <Link
+                to="/admin/login"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowAccountMenu(false)}
+              >
+                <div className="flex items-center">
+                  <Shield className="w-4 h-4 mr-2" />
+                  <span>Admin Login</span>
+                </div>
+              </Link>
             </>
           )}
         </div>
@@ -242,12 +297,30 @@ const Navbar: React.FC = () => {
                 <p className="text-sm font-medium text-white truncate">{user.email}</p>
                 <p className="text-xs text-white/70">Signed in</p>
               </div>
+              <Link
+                to="/account"
+                className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsOpen(false)}
+              >
+                <User size={24} />
+                <span>My Profile</span>
+              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin/templates"
+                  className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Shield size={24} />
+                  <span>Admin Panel</span>
+                </Link>
+              )}
               <button
                 onClick={() => {
                   handleSignOut();
                   setIsOpen(false);
                 }}
-                className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                className="flex items-center space-x-2 text-xl text-red-300 hover:text-red-200 font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
               >
                 <LogOut size={24} />
                 <span>Sign Out</span>
@@ -257,7 +330,7 @@ const Navbar: React.FC = () => {
             <>
               <button
                 onClick={() => {
-                  navigate('/tax-assistant');
+                  navigate('/auth');
                   setIsOpen(false);
                 }}
                 className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
@@ -267,7 +340,7 @@ const Navbar: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  navigate('/tax-assistant');
+                  navigate('/auth');
                   setIsOpen(false);
                 }}
                 className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
@@ -275,6 +348,14 @@ const Navbar: React.FC = () => {
                 <UserPlus size={24} />
                 <span>Sign Up</span>
               </button>
+              <Link
+                to="/admin/login"
+                className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsOpen(false)}
+              >
+                <Shield size={24} />
+                <span>Admin Login</span>
+              </Link>
             </>
           )}
         </nav>
