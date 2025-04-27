@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, UserPlus, LogIn, Home, RefreshCw, User, Phone, Key, Repeat } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import ApiKeySetup from './ApiKeySetup';
 import { supabase } from '../lib/supabase';
 
@@ -10,6 +10,8 @@ interface AuthProps {
 }
 
 export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -26,7 +28,50 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
 
-  // Enhanced validation functions
+  useEffect(() => {
+    const handleEmailVerification = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      
+      if (code) {
+        try {
+          setLoading(true);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (error) throw error;
+          
+          if (data.user) {
+            // Create or update profile
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: data.user.id,
+                email: data.user.email,
+                full_name: data.user.user_metadata.full_name || null,
+                phone: data.user.user_metadata.phone || null,
+                updated_at: new Date().toISOString()
+              });
+
+            if (profileError) throw profileError;
+
+            setSuccess('Email verified successfully! Redirecting...');
+            setTimeout(() => {
+              onAuthSuccess();
+              navigate(returnUrl || '/');
+            }, 1500);
+          }
+        } catch (error) {
+          console.error('Verification error:', error);
+          setError('Failed to verify email. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    handleEmailVerification();
+  }, [navigate, onAuthSuccess, returnUrl]);
+
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
@@ -95,7 +140,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     setSuccess(null);
     setConfirmationEmailSent(false);
     
-    // Validate all fields
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
     const isConfirmValid = !isLogin ? validateConfirmPassword(confirmPassword) : true;
@@ -108,7 +152,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
 
     try {
       if (isLogin) {
-        // Login using Supabase Auth
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password,
@@ -120,7 +163,6 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
           onAuthSuccess();
         }
       } else {
-        // First, sign up the user
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password,
@@ -136,13 +178,11 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
         if (signUpError) throw signUpError;
 
         if (authData.session === null) {
-          // Email confirmation is required
           setConfirmationEmailSent(true);
           setSuccess('Please check your email to confirm your account before signing in.');
           return;
         }
 
-        // If we have a session, the user is confirmed
         if (authData.user?.id) {
           const { error: profileError } = await supabase
             .from('profiles')
@@ -151,9 +191,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
               email: email.trim(),
               full_name: fullName.trim() || null,
               phone: mobile.trim() || null,
-              is_admin: false
-            }, {
-              onConflict: 'id'
+              updated_at: new Date().toISOString()
             });
 
           if (profileError) throw profileError;

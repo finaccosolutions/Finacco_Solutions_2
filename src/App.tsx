@@ -10,6 +10,7 @@ import WhatsAppButton from './components/WhatsAppButton';
 import TaxAssistant from './components/TaxAssistant';
 import Auth from './components/Auth';
 import ApiKeySetup from './components/ApiKeySetup';
+import Account from './components/Account';
 import { supabase } from './lib/supabase';
 
 import DocumentTemplates from './pages/DocumentTemplates';
@@ -36,7 +37,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
           setIsAuthenticated(false);
         } else {
           setIsAuthenticated(!!session);
-          // Check if user is admin
           if (session?.user?.email?.endsWith('@finaccosolutions.com')) {
             setIsAdmin(true);
           }
@@ -100,7 +100,12 @@ function App() {
             <WhatsAppButton />
           </>
         } />
-        <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+        <Route path="/auth/callback" element={<Auth onAuthSuccess={() => null} />} />
+        <Route path="/account" element={
+          <ProtectedRoute>
+            <Account />
+          </ProtectedRoute>
+        } />
         <Route path="/tax-assistant" element={
           <ProtectedRoute>
             <TaxAssistant />

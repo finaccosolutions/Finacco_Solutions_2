@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +19,7 @@ serve(async (req) => {
         <html>
         <head>
           <meta charset="utf-8">
-          <title>Confirm Your Email</title>
+          <title>Welcome to Finacco Solutions</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -28,6 +28,7 @@ serve(async (req) => {
               max-width: 600px;
               margin: 0 auto;
               color: #1a1a1a;
+              background-color: #f3f4f6;
             }
             .container {
               background-color: #ffffff;
@@ -35,30 +36,71 @@ serve(async (req) => {
               padding: 2rem;
               box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             }
+            .logo {
+              text-align: center;
+              margin-bottom: 2rem;
+            }
+            .logo-text {
+              font-size: 24px;
+              font-weight: bold;
+              color: #2563eb;
+            }
             .button {
               display: inline-block;
               padding: 12px 24px;
               background: linear-gradient(to right, #2563eb, #7c3aed);
-              color: white;
-              text-decoration: none;
+              color: white !important;
+              text-decoration: none !important;
               border-radius: 6px;
               font-weight: 600;
               margin: 1rem 0;
+              text-align: center;
             }
             .footer {
               margin-top: 2rem;
+              padding-top: 1rem;
+              border-top: 1px solid #e5e7eb;
               font-size: 0.875rem;
               color: #666;
+              text-align: center;
+            }
+            .confirmation-url {
+              word-break: break-all;
+              color: #2563eb;
+              margin: 1rem 0;
+              padding: 1rem;
+              background-color: #f3f4f6;
+              border-radius: 4px;
+              font-family: monospace;
             }
           </style>
         </head>
         <body>
           <div class="container">
-            <h1 style="color: #2563eb; margin-bottom: 1rem;">Welcome to Finacco Solutions!</h1>
-            <p>Thank you for signing up. Please confirm your email address to get started.</p>
-            <a href="${data.confirmation_url}" class="button">Confirm Email Address</a>
-            <p>Or copy and paste this URL into your browser:</p>
-            <p style="word-break: break-all; color: #2563eb;">${data.confirmation_url}</p>
+            <div class="logo">
+              <div class="logo-text">Finacco Solutions</div>
+            </div>
+            
+            <h1 style="color: #2563eb; margin-bottom: 1rem; text-align: center;">Welcome!</h1>
+            
+            <p style="font-size: 16px; color: #374151; text-align: center;">
+              Thank you for signing up with Finacco Solutions. To get started, please confirm your email address.
+            </p>
+            
+            <div style="text-align: center; margin: 2rem 0;">
+              <a href="${data.confirmation_url}" class="button" style="color: white !important; text-decoration: none !important;">
+                Confirm Email Address
+              </a>
+            </div>
+            
+            <p style="color: #6b7280; text-align: center;">
+              Or copy and paste this URL into your browser:
+            </p>
+            
+            <div class="confirmation-url">
+              ${data.confirmation_url}
+            </div>
+            
             <div class="footer">
               <p>If you didn't create an account, you can safely ignore this email.</p>
               <p>© ${new Date().getFullYear()} Finacco Solutions. All rights reserved.</p>
