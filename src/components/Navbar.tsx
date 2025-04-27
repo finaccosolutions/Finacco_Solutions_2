@@ -142,28 +142,16 @@ const Navbar: React.FC = () => {
                 </div>
               </Link>
               {isAdmin && (
-                <>
-                  <Link
-                    to="/admin/templates"
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    onClick={() => setShowAccountMenu(false)}
-                  >
-                    <div className="flex items-center">
-                      <Shield className="w-4 h-4 mr-2" />
-                      <span>Document Templates</span>
-                    </div>
-                  </Link>
-                  <Link
-                    to="/admin/dashboard"
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    onClick={() => setShowAccountMenu(false)}
-                  >
-                    <div className="flex items-center">
-                      <Shield className="w-4 h-4 mr-2" />
-                      <span>Admin Panel</span>
-                    </div>
-                  </Link>
-                </>
+                <Link
+                  to="/admin/templates"
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setShowAccountMenu(false)}
+                >
+                  <div className="flex items-center">
+                    <Shield className="w-4 h-4 mr-2" />
+                    <span>Admin Panel</span>
+                  </div>
+                </Link>
               )}
               <button
                 onClick={handleSignOut}
@@ -296,24 +284,14 @@ const Navbar: React.FC = () => {
                 <span>My Profile</span>
               </Link>
               {isAdmin && (
-                <>
-                  <Link
-                    to="/admin/templates"
-                    className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Shield size={24} />
-                    <span>Document Templates</span>
-                  </Link>
-                  <Link
-                    to="/admin/dashboard"
-                    className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Shield size={24} />
-                    <span>Admin Panel</span>
-                  </Link>
-                </>
+                <Link
+                  to="/admin/templates"
+                  className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Shield size={24} />
+                  <span>Admin Panel</span>
+                </Link>
               )}
               <button
                 onClick={handleSignOut}
