@@ -30,25 +30,31 @@ const Account = () => {
     const getUser = async () => {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
+        if (userError) {
+          throw userError;
+        }
+
+        if (!user) {
+          navigate('/auth');
+          return;
+        }
+
         setUser(user);
 
-        if (user) {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-          if (profileError) throw profileError;
+        if (profileError) throw profileError;
 
-          if (profile) {
-            setProfile(profile);
-            setFormData({
-              full_name: profile.full_name || '',
-              phone: profile.phone || ''
-            });
-          }
+        if (profile) {
+          setProfile(profile);
+          setFormData({
+            full_name: profile.full_name || '',
+            phone: profile.phone || ''
+          });
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -59,7 +65,7 @@ const Account = () => {
     };
 
     getUser();
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,9 +117,17 @@ const Account = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="flex items-center space-x-2">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <span className="text-gray-600">Loading profile...</span>
+        </div>
       </div>
     );
+  }
+
+  if (!user) {
+    navigate('/auth');
+    return null;
   }
 
   return (
