@@ -29,6 +29,10 @@ const Account = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
+        // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
 
@@ -37,6 +41,7 @@ const Account = () => {
           return;
         }
 
+        // Get user data
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) throw userError;
 
@@ -47,24 +52,52 @@ const Account = () => {
 
         setUser(user);
 
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+        // Get profile data with retry mechanism
+        let retries = 3;
+        let profileData = null;
+        let profileError = null;
 
-        if (profileError) throw profileError;
+        while (retries > 0 && !profileData) {
+          const { data: profile, error: error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
 
-        if (profile) {
-          setProfile(profile);
+          if (profile) {
+            profileData = profile;
+            break;
+          }
+
+          if (error) {
+            profileError = error;
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+          }
+        }
+
+        if (profileError && !profileData) throw profileError;
+
+        if (profileData) {
+          setProfile(profileData);
           setFormData({
-            full_name: profile.full_name || '',
-            phone: profile.phone || ''
+            full_name: profileData.full_name || '',
+            phone: profileData.phone || ''
           });
+        } else {
+          throw new Error('Profile data not found');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
-        setError('Failed to load user data');
+        setError('Failed to load user data. Please try refreshing the page.');
+        
+        // If the error is auth-related, redirect to login
+        if (error instanceof Error && 
+            (error.message.includes('auth') || error.message.includes('session'))) {
+          navigate('/auth');
+        }
       } finally {
         setLoading(false);
       }
@@ -103,7 +136,7 @@ const Account = () => {
       }));
     } catch (error) {
       console.error('Error updating profile:', error);
-      setError('Failed to update profile');
+      setError('Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -114,10 +147,9 @@ const Account = () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       navigate('/');
-      window.location.reload(); // Force reload to clear all states
     } catch (error) {
       console.error('Error signing out:', error);
-      setError('Failed to sign out');
+      setError('Failed to sign out. Please try again.');
     }
   };
 

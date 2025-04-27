@@ -73,6 +73,17 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     handleEmailVerification();
   }, [navigate]);
 
+  // First, ensure we're signed out when component mounts
+  useEffect(() => {
+    const signOutIfNeeded = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.auth.signOut();
+      }
+    };
+    signOutIfNeeded();
+  }, []);
+
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
@@ -152,6 +163,9 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     setLoading(true);
 
     try {
+      // First ensure we're signed out
+      await supabase.auth.signOut();
+
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
