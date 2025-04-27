@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Link, useNavigate } from 'react-router-dom';
-import { Home, Loader2, Save, AlertCircle, LogOut } from 'lucide-react';
+import { Home, Loader2, Save, AlertCircle, LogOut, Settings } from 'lucide-react';
 
 interface Profile {
   id: string;
   email: string;
   full_name: string | null;
   phone: string | null;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -29,9 +30,24 @@ const Account = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
+        // Get current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          throw new Error('Authentication error. Please sign in again.');
+        }
+
+        if (!session) {
+          navigate('/auth');
+          return;
+        }
+
+        // Get user data
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) {
-          throw userError;
+          throw new Error('Failed to fetch user data. Please try again.');
         }
 
         if (!user) {
@@ -41,15 +57,47 @@ const Account = () => {
 
         setUser(user);
 
+        // Get profile data
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          if (profileError.code === 'PGRST116') {
+            // Profile not found, create a new one
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: user.id,
+                  email: user.email,
+                  full_name: user.user_metadata.full_name || '',
+                  phone: user.user_metadata.phone || '',
+                  is_admin: false
+                }
+              ]);
 
-        if (profile) {
+            if (insertError) throw insertError;
+
+            // Fetch the newly created profile
+            const { data: newProfile, error: newProfileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single();
+
+            if (newProfileError) throw newProfileError;
+            setProfile(newProfile);
+            setFormData({
+              full_name: newProfile.full_name || '',
+              phone: newProfile.phone || ''
+            });
+          } else {
+            throw profileError;
+          }
+        } else if (profile) {
           setProfile(profile);
           setFormData({
             full_name: profile.full_name || '',
@@ -58,7 +106,12 @@ const Account = () => {
         }
       } catch (error) {
         console.error('Error loading user data:', error);
-        setError('Failed to load user data');
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+        
+        if (error instanceof Error && 
+            (error.message.includes('auth') || error.message.includes('session'))) {
+          setTimeout(() => navigate('/auth'), 2000);
+        }
       } finally {
         setLoading(false);
       }
@@ -97,7 +150,7 @@ const Account = () => {
       }));
     } catch (error) {
       console.error('Error updating profile:', error);
-      setError('Failed to update profile');
+      setError('Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -110,7 +163,7 @@ const Account = () => {
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
-      setError('Failed to sign out');
+      setError('Failed to sign out. Please try again.');
     }
   };
 
@@ -126,21 +179,43 @@ const Account = () => {
   }
 
   if (!user) {
-    navigate('/auth');
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Please sign in to access your profile.</p>
+          <Link
+            to="/auth"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex justify-between items-center">
-          <Link
-            to="/"
-            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <Home className="w-5 h-5 mr-2" />
-            Back to Home
-          </Link>
+          <div className="flex items-center space-x-4">
+            <Link
+              to="/"
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <Home className="w-5 h-5 mr-2" />
+              Back to Home
+            </Link>
+            {profile?.is_admin && (
+              <Link
+                to="/admin"
+                className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <Settings className="w-5 h-5 mr-2" />
+                Admin Panel
+              </Link>
+            )}
+          </div>
           <button
             onClick={handleSignOut}
             className="flex items-center text-red-600 hover:text-red-700 transition-colors"
@@ -249,6 +324,9 @@ const Account = () => {
                       <div className="mt-2 text-sm text-gray-600 space-y-1">
                         <p>Account created: {new Date(profile?.created_at || '').toLocaleDateString()}</p>
                         <p>Last updated: {new Date(profile?.updated_at || '').toLocaleDateString()}</p>
+                        {profile?.is_admin && (
+                          <p className="text-blue-600">Administrator Account</p>
+                        )}
                       </div>
                     </div>
                   </div>

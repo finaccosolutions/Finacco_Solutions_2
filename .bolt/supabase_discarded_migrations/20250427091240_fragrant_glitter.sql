@@ -20,7 +20,7 @@ FOR SELECT
 TO authenticated 
 USING (
   -- Allow users to read their own profile
-  auth.uid() = id 
+  uid() = id 
   OR 
   -- Allow admins to read all profiles, but check admin status directly
   is_admin = true

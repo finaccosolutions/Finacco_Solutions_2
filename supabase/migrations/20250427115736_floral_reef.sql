@@ -28,7 +28,7 @@
       - Regular users can only read
 */
 
--- Create document categories table if it doesn't exist
+-- Create document categories table
 CREATE TABLE IF NOT EXISTS document_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS document_categories (
   updated_at timestamptz DEFAULT now()
 );
 
--- Create document templates table if it doesn't exist
+-- Create document templates table
 CREATE TABLE IF NOT EXISTS document_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS document_templates (
 ALTER TABLE document_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_templates ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies to avoid conflicts
+-- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Allow all access for admin users on categories" ON document_categories;
 DROP POLICY IF EXISTS "Allow read access for authenticated users on categories" ON document_categories;
 DROP POLICY IF EXISTS "Allow all access for admin users on templates" ON document_templates;
