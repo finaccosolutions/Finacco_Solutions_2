@@ -14,7 +14,6 @@ import Account from './components/Account';
 import EmailConfirmation from './components/EmailConfirmation';
 import { supabase } from './lib/supabase';
 import AdminLogin from './pages/AdminLogin';
-
 import DocumentTemplates from './pages/DocumentTemplates';
 import CreateDocument from './pages/CreateDocument';
 import DocumentTemplatesAdmin from './pages/admin/DocumentTemplatesAdmin';
@@ -41,16 +40,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
           setIsAuthenticated(!!session);
           
           if (session?.user) {
-            // Check if user is admin
-            const { data: profile, error: profileError } = await supabase
+            const { data: profile } = await supabase
               .from('profiles')
               .select('is_admin')
               .eq('id', session.user.id)
               .single();
 
-            if (!profileError && profile?.is_admin) {
-              setIsAdmin(true);
-            }
+            setIsAdmin(!!profile?.is_admin);
           }
         }
       } catch (err) {
@@ -99,6 +95,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
   return <>{children}</>;
 };
 
+const HomePage = () => (
+  <>
+    <Navbar />
+    <Hero />
+    <Services />
+    <About />
+    <Contact />
+    <Footer />
+    <WhatsAppButton />
+  </>
+);
+
 function App() {
   useEffect(() => {
     document.title = 'Finacco Solutions | Financial & Tech Services';
@@ -107,17 +115,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={
-          <>
-            <Navbar />
-            <Hero />
-            <Services />
-            <About />
-            <Contact />
-            <Footer />
-            <WhatsAppButton />
-          </>
-        } />
+        <Route path="/" element={<HomePage />} />
         <Route path="/auth" element={<Auth onAuthSuccess={() => null} />} />
         <Route path="/auth/callback" element={<Auth onAuthSuccess={() => null} />} />
         <Route path="/auth/confirmation/success" element={
@@ -161,11 +159,6 @@ function App() {
         <Route path="/admin/templates" element={
           <ProtectedRoute adminOnly>
             <DocumentTemplatesAdmin />
-          </ProtectedRoute>
-        } />
-        <Route path="/tax-assistant" element={
-          <ProtectedRoute>
-            <TaxAssistant />
           </ProtectedRoute>
         } />
         <Route path="*" element={<Navigate to="/" replace />} />

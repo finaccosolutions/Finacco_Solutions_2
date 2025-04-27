@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Menu, X, Brain, LogIn, UserPlus, LogOut, User, ChevronDown, Shield } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Logo from './Logo';
-import Auth from './Auth';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,17 +55,8 @@ const Navbar: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-
-      if (window.scrollY > 300) {
-        setShowScrollTop(true);
-      } else {
-        setShowScrollTop(false);
-      }
+      setScrolled(window.scrollY > 50);
+      setShowScrollTop(window.scrollY > 300);
     };
 
     window.addEventListener('scroll', handleScroll);
@@ -89,14 +78,19 @@ const Navbar: React.FC = () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      navigate('/');
       setShowAccountMenu(false);
+      navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
   const scrollToSection = (id: string) => {
+    if (location.pathname !== '/') {
+      navigate(`/?section=${id}`);
+      return;
+    }
+
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
@@ -104,16 +98,20 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false);
-    setShowAccountMenu(false);
-  };
+  useEffect(() => {
+    if (location.pathname === '/') {
+      const section = new URLSearchParams(location.search).get('section');
+      if (section) {
+        const element = document.getElementById(section);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  }, [location]);
 
   const AccountMenu = () => (
-    <div 
-      ref={accountMenuRef}
-      className="relative"
-    >
+    <div ref={accountMenuRef} className="relative">
       <button
         onClick={() => setShowAccountMenu(!showAccountMenu)}
         className="flex items-center gap-2 text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
@@ -165,32 +163,26 @@ const Navbar: React.FC = () => {
             </>
           ) : (
             <>
-              <button
-                onClick={() => {
-                  setIsLogin(true);
-                  navigate('/auth');
-                  setShowAccountMenu(false);
-                }}
+              <Link
+                to="/auth"
                 className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowAccountMenu(false)}
               >
                 <div className="flex items-center">
                   <LogIn className="w-4 h-4 mr-2" />
                   <span>Sign In</span>
                 </div>
-              </button>
-              <button
-                onClick={() => {
-                  setIsLogin(false);
-                  navigate('/auth');
-                  setShowAccountMenu(false);
-                }}
+              </Link>
+              <Link
+                to="/auth"
                 className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowAccountMenu(false)}
               >
                 <div className="flex items-center">
                   <UserPlus className="w-4 h-4 mr-2" />
                   <span>Sign Up</span>
                 </div>
-              </button>
+              </Link>
               <Link
                 to="/admin/login"
                 className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -218,9 +210,9 @@ const Navbar: React.FC = () => {
         }`}
       >
         <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="text-white">
+          <Link to="/" className="text-white">
             <Logo />
-          </div>
+          </Link>
           
           <nav className="hidden md:flex items-center space-x-8">
             {['home', 'services', 'about', 'contact'].map((item) => (
@@ -234,13 +226,15 @@ const Navbar: React.FC = () => {
               </button>
             ))}
             
-            <Link 
-              to="/tax-assistant"
-              className="flex items-center space-x-2 text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
-            >
-              <Brain size={20} />
-              <span>Tax AI Assistant</span>
-            </Link>
+            {user && (
+              <Link 
+                to="/tax-assistant"
+                className="flex items-center space-x-2 text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
+              >
+                <Brain size={20} />
+                <span>Tax AI Assistant</span>
+              </Link>
+            )}
 
             <AccountMenu />
           </nav>
@@ -261,9 +255,9 @@ const Navbar: React.FC = () => {
         } transition-transform duration-300 ease-in-out md:hidden`}
       >
         <div className="container mx-auto px-4 py-5 flex justify-between items-center">
-          <div className="text-white">
+          <Link to="/" className="text-white" onClick={() => setIsOpen(false)}>
             <Logo />
-          </div>
+          </Link>
           <button
             className="text-white focus:outline-none"
             onClick={() => setIsOpen(false)}
@@ -282,14 +276,16 @@ const Navbar: React.FC = () => {
             </button>
           ))}
           
-          <Link 
-            to="/tax-assistant"
-            className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
-            onClick={() => setIsOpen(false)}
-          >
-            <Brain size={24} />
-            <span>Tax AI Assistant</span>
-          </Link>
+          {user && (
+            <Link 
+              to="/tax-assistant"
+              className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+              onClick={() => setIsOpen(false)}
+            >
+              <Brain size={24} />
+              <span>Tax AI Assistant</span>
+            </Link>
+          )}
 
           {user ? (
             <>
@@ -328,26 +324,22 @@ const Navbar: React.FC = () => {
             </>
           ) : (
             <>
-              <button
-                onClick={() => {
-                  navigate('/auth');
-                  setIsOpen(false);
-                }}
+              <Link
+                to="/auth"
                 className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsOpen(false)}
               >
                 <LogIn size={24} />
                 <span>Sign In</span>
-              </button>
-              <button
-                onClick={() => {
-                  navigate('/auth');
-                  setIsOpen(false);
-                }}
+              </Link>
+              <Link
+                to="/auth"
                 className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsOpen(false)}
               >
                 <UserPlus size={24} />
                 <span>Sign Up</span>
-              </button>
+              </Link>
               <Link
                 to="/admin/login"
                 className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
