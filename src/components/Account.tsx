@@ -34,7 +34,9 @@ const Account = () => {
 
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          throw new Error('Authentication error. Please sign in again.');
+        }
 
         if (!session) {
           navigate('/auth');
@@ -43,7 +45,9 @@ const Account = () => {
 
         // Get user data
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
+        if (userError) {
+          throw new Error('Failed to fetch user data. Please try again.');
+        }
 
         if (!user) {
           navigate('/auth');
@@ -52,51 +56,59 @@ const Account = () => {
 
         setUser(user);
 
-        // Get profile data with retry mechanism
-        let retries = 3;
-        let profileData = null;
-        let profileError = null;
+        // Get profile data
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-        while (retries > 0 && !profileData) {
-          const { data: profile, error: error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
+        if (profileError) {
+          if (profileError.code === 'PGRST116') {
+            // Profile not found, create a new one
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: user.id,
+                  email: user.email,
+                  full_name: user.user_metadata.full_name || '',
+                  phone: user.user_metadata.phone || ''
+                }
+              ]);
 
-          if (profile) {
-            profileData = profile;
-            break;
+            if (insertError) throw insertError;
+
+            // Fetch the newly created profile
+            const { data: newProfile, error: newProfileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single();
+
+            if (newProfileError) throw newProfileError;
+            setProfile(newProfile);
+            setFormData({
+              full_name: newProfile.full_name || '',
+              phone: newProfile.phone || ''
+            });
+          } else {
+            throw profileError;
           }
-
-          if (error) {
-            profileError = error;
-            retries--;
-            if (retries > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            }
-          }
-        }
-
-        if (profileError && !profileData) throw profileError;
-
-        if (profileData) {
-          setProfile(profileData);
+        } else if (profile) {
+          setProfile(profile);
           setFormData({
-            full_name: profileData.full_name || '',
-            phone: profileData.phone || ''
+            full_name: profile.full_name || '',
+            phone: profile.phone || ''
           });
-        } else {
-          throw new Error('Profile data not found');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
-        setError('Failed to load user data. Please try refreshing the page.');
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
         
-        // If the error is auth-related, redirect to login
         if (error instanceof Error && 
             (error.message.includes('auth') || error.message.includes('session'))) {
-          navigate('/auth');
+          setTimeout(() => navigate('/auth'), 2000);
         }
       } finally {
         setLoading(false);
@@ -165,8 +177,19 @@ const Account = () => {
   }
 
   if (!user) {
-    navigate('/auth');
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Please sign in to access your profile.</p>
+          <Link
+            to="/auth"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
