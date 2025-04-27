@@ -29,10 +29,16 @@ const Account = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          throw userError;
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (!session) {
+          navigate('/auth');
+          return;
         }
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
 
         if (!user) {
           navigate('/auth');
@@ -108,6 +114,7 @@ const Account = () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       navigate('/');
+      window.location.reload(); // Force reload to clear all states
     } catch (error) {
       console.error('Error signing out:', error);
       setError('Failed to sign out');

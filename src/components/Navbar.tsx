@@ -78,8 +78,10 @@ const Navbar: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
-      window.location.href = '/';
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/');
+      window.location.reload(); // Force reload to clear all states
     } catch (error) {
       console.error('Error signing out:', error);
     }
