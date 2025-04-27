@@ -204,10 +204,7 @@ const Navbar: React.FC = () => {
     </div>
   );
 
-  const navigationItems = ['home', 'services', 'about', 'contact'];
-  if (user) {
-    navigationItems.push('tax-assistant');
-  }
+  const navigationItems = ['home', 'services', 'about', 'contact', 'tax-assistant'];
 
   return (
     <>
