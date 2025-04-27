@@ -13,6 +13,7 @@ const Navbar: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,6 +33,8 @@ const Navbar: React.FC = () => {
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -50,9 +53,12 @@ const Navbar: React.FC = () => {
       } else {
         setIsAdmin(false);
       }
+      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -78,12 +84,18 @@ const Navbar: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      setShowAccountMenu(false);
+      setUser(null);
+      setIsAdmin(false);
       navigate('/');
-      window.location.reload(); // Force reload to clear all states
     } catch (error) {
       console.error('Error signing out:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -117,13 +129,14 @@ const Navbar: React.FC = () => {
       <button
         onClick={() => setShowAccountMenu(!showAccountMenu)}
         className="flex items-center gap-2 text-gray-100 hover:text-white font-medium transition-all duration-300 relative group px-4 py-2 rounded-lg hover:bg-white/10"
+        disabled={isLoading}
       >
         <User size={20} />
         <span>Account</span>
         <ChevronDown size={16} className={`transition-transform duration-300 ${showAccountMenu ? 'rotate-180' : ''}`} />
       </button>
 
-      {showAccountMenu && (
+      {showAccountMenu && !isLoading && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
           {user ? (
             <>
@@ -149,17 +162,18 @@ const Navbar: React.FC = () => {
                 >
                   <div className="flex items-center">
                     <Shield className="w-4 h-4 mr-2" />
-                    <span>Document Templates</span>
+                    <span>Admin Panel</span>
                   </div>
                 </Link>
               )}
               <button
                 onClick={handleSignOut}
-                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                disabled={isLoading}
+                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 disabled:opacity-50"
               >
                 <div className="flex items-center">
                   <LogOut className="w-4 h-4 mr-2" />
-                  <span>Sign Out</span>
+                  <span>{isLoading ? 'Signing out...' : 'Sign Out'}</span>
                 </div>
               </button>
             </>
@@ -183,6 +197,16 @@ const Navbar: React.FC = () => {
                 <div className="flex items-center">
                   <UserPlus className="w-4 h-4 mr-2" />
                   <span>Sign Up</span>
+                </div>
+              </Link>
+              <Link
+                to="/admin/login"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowAccountMenu(false)}
+              >
+                <div className="flex items-center">
+                  <Shield className="w-4 h-4 mr-2" />
+                  <span>Admin Login</span>
                 </div>
               </Link>
             </>
@@ -279,7 +303,7 @@ const Navbar: React.FC = () => {
             </Link>
           )}
 
-          {user ? (
+          {!isLoading && (user ? (
             <>
               <div className="px-4 py-2 border-t border-white/10">
                 <p className="text-sm font-medium text-white truncate">{user.email}</p>
@@ -300,15 +324,19 @@ const Navbar: React.FC = () => {
                   onClick={() => setIsOpen(false)}
                 >
                   <Shield size={24} />
-                  <span>Document Templates</span>
+                  <span>Admin Panel</span>
                 </Link>
               )}
               <button
-                onClick={handleSignOut}
-                className="flex items-center space-x-2 text-xl text-red-300 hover:text-red-200 font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                onClick={() => {
+                  handleSignOut();
+                  setIsOpen(false);
+                }}
+                disabled={isLoading}
+                className="flex items-center space-x-2 text-xl text-red-300 hover:text-red-200 font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg disabled:opacity-50"
               >
                 <LogOut size={24} />
-                <span>Sign Out</span>
+                <span>{isLoading ? 'Signing out...' : 'Sign Out'}</span>
               </button>
             </>
           ) : (
@@ -329,8 +357,16 @@ const Navbar: React.FC = () => {
                 <UserPlus size={24} />
                 <span>Sign Up</span>
               </Link>
+              <Link
+                to="/admin/login"
+                className="flex items-center space-x-2 text-xl text-gray-100 hover:text-white font-medium transition-all duration-300 transform hover:translate-x-2 hover:bg-white/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsOpen(false)}
+              >
+                <Shield size={24} />
+                <span>Admin Login</span>
+              </Link>
             </>
-          )}
+          ))}
         </nav>
       </div>
 
