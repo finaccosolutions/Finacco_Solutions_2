@@ -147,7 +147,7 @@ const Navbar: React.FC = () => {
                 >
                   <div className="flex items-center">
                     <Shield className="w-4 h-4 mr-2" />
-                    <span>Admin Panel</span>
+                    <span>Document Templates</span>
                   </div>
                 </Link>
               )}
@@ -298,7 +298,7 @@ const Navbar: React.FC = () => {
                   onClick={() => setIsOpen(false)}
                 >
                   <Shield size={24} />
-                  <span>Admin Panel</span>
+                  <span>Document Templates</span>
                 </Link>
               )}
               <button
