@@ -24,6 +24,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
 
   // Enhanced validation functions
   const validateEmail = (email: string): boolean => {
@@ -92,6 +93,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setConfirmationEmailSent(false);
     
     // Validate all fields
     const isEmailValid = validateEmail(email);
@@ -122,18 +124,29 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password,
+          options: {
+            data: {
+              full_name: fullName.trim() || null,
+              phone: mobile.trim() || null,
+            },
+            emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
         });
 
         if (signUpError) throw signUpError;
+
+        if (authData.session === null) {
+          // Email confirmation is required
+          setConfirmationEmailSent(true);
+          setSuccess('Please check your email to confirm your account before signing in.');
+          return;
+        }
 
         if (!authData.user?.id) {
           throw new Error('User creation failed');
         }
 
-        // Wait a short moment to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Then create the profile
+        // If we have a session, the user is confirmed
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -141,7 +154,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
             email: email.trim(),
             full_name: fullName.trim() || null,
             phone: mobile.trim() || null,
-            is_admin: false // Never allow setting is_admin during signup
+            is_admin: false
           });
 
         if (profileError) throw profileError;
@@ -213,7 +226,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
                 </div>
               )}
 
-              {success && (
+              {(success || confirmationEmailSent) && (
                 <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
                   <div className="flex">
                     <div className="flex-shrink-0">
@@ -223,6 +236,11 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-green-700">{success}</p>
+                      {confirmationEmailSent && (
+                        <p className="text-sm text-green-700 mt-2">
+                          A confirmation email has been sent. Please check your inbox and click the confirmation link to complete your registration.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -366,7 +384,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || confirmationEmailSent}
                   className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 text-base font-medium transition-all duration-300 transform hover:scale-[1.02]"
                 >
                   {loading ? (
@@ -407,6 +425,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
                         setEmailError(null);
                         setPasswordError(null);
                         setConfirmPasswordError(null);
+                        setConfirmationEmailSent(false);
                       }}
                       className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300"
                     >

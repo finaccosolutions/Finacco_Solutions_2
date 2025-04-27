@@ -14,11 +14,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'pkce',
     storage: window.localStorage,
-    // Add custom mappings for your user table
-    multiTab: false, // Helps prevent sync issues
-    debug: true // Enable for troubleshooting
+    multiTab: false,
+    debug: true,
+    redirectTo: `${window.location.origin}/auth/callback`,
+    emailRedirectTo: `${window.location.origin}/auth/callback`,
+    // Configure custom email template
+    emailAuth: {
+      email: {
+        confirmSignUpTemplateId: 'custom-email'
+      }
+    }
   },
   db: {
-    schema: 'public' // Ensure we're using the public schema
+    schema: 'public'
   }
 });
