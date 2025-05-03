@@ -11,10 +11,10 @@ const domain = window.location.origin;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession: true, // Enable session persistence
+    autoRefreshToken: true, // Enable automatic token refresh
     detectSessionInUrl: true,
-    storage: window.localStorage,
+    storage: window.localStorage, // Use localStorage for session storage
     storageKey: 'supabase.auth.token',
     flowType: 'pkce',
     debug: import.meta.env.DEV,
