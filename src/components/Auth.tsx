@@ -73,16 +73,25 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
     handleEmailVerification();
   }, [navigate]);
 
-  // First, ensure we're signed out when component mounts
   useEffect(() => {
-    const signOutIfNeeded = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.auth.signOut();
+    // Check existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        onAuthSuccess();
+        navigate(returnUrl || '/');
       }
-    };
-    signOutIfNeeded();
-  }, []);
+    });
+  
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        onAuthSuccess();
+        navigate(returnUrl || '/');
+      }
+    });
+  
+    return () => subscription.unsubscribe();
+  }, [navigate, onAuthSuccess, returnUrl]);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

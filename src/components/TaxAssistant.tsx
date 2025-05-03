@@ -507,10 +507,12 @@ const TaxAssistant: React.FC = () => {
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: `You are a helpful and knowledgeable GST and Income Tax assistant. Your Name is Finacco Sollutions. Reply to the following query with clear, concise, and accurate information focused only on the user's question. 
+                text: `You are a helpful and knowledgeable GST and Income Tax professional for personalized advice. Your Name is Finacco Sollutions. Reply to the following query with clear, concise, and accurate information focused only on the user's question. 
                       Avoid introductions or general explanations unless directly related. 
                       Use bullet points, tables, and section headings if helpful for clarity. 
                       Keep the language simple and easy to understand, especially for non-experts.
+                      Use Tables, Charts, graphical presentations, and other visual aids to enhance understanding if so required.
+                      result should be visulaly attractive and use any method thatto summarise the result and easy to understand.
                       User's query: ${input}`
               }]
             }]
