@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, startSessionRefresh, stopSessionRefresh, clearSession } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Link, useNavigate } from 'react-router-dom';
 import { Home, Loader2, Save, AlertCircle, LogOut, Settings } from 'lucide-react';
@@ -37,6 +37,7 @@ const Account = () => {
         if (sessionError) throw sessionError;
 
         if (!session) {
+          await clearSession();
           navigate('/auth');
           return;
         }
@@ -45,23 +46,23 @@ const Account = () => {
         if (userError) throw userError;
 
         if (!user) {
+          await clearSession();
           navigate('/auth');
           return;
         }
 
         setUser(user);
+        startSessionRefresh();
 
-        // Get profile data
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, email, full_name, phone, is_admin, created_at, updated_at')
           .eq('id', user.id)
           .single();
 
         if (profileError) {
           if (profileError.code === 'PGRST116') {
-            // Profile not found, create a new one
-            const { error: insertError } = await supabase
+            const { data: newProfile, error: insertError } = await supabase
               .from('profiles')
               .insert([
                 {
@@ -71,18 +72,12 @@ const Account = () => {
                   phone: user.user_metadata.phone || '',
                   is_admin: false
                 }
-              ]);
+              ])
+              .select()
+              .single();
 
             if (insertError) throw insertError;
 
-            // Fetch the newly created profile
-            const { data: newProfile, error: newProfileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .single();
-
-            if (newProfileError) throw newProfileError;
             setProfile(newProfile);
             setFormData({
               full_name: newProfile.full_name || '',
@@ -101,12 +96,18 @@ const Account = () => {
       } catch (error) {
         console.error('Error loading user data:', error);
         setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+        await clearSession();
+        navigate('/auth');
       } finally {
         setLoading(false);
       }
     };
 
     getUser();
+
+    return () => {
+      stopSessionRefresh();
+    };
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,13 +121,12 @@ const Account = () => {
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email!,
+        .update({
           full_name: formData.full_name,
           phone: formData.phone,
           updated_at: new Date().toISOString()
-        });
+        })
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
 
@@ -147,8 +147,7 @@ const Account = () => {
 
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await clearSession();
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
