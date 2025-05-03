@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, checkSession } from '../lib/supabase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,49 +16,84 @@ const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) =>
   const location = useLocation();
 
   useEffect(() => {
+    let mounted = true;
+
     const checkAuth = async () => {
       try {
-        // 1. Check if user is authenticated
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { session, error } = await checkSession();
         
-        if (error) throw error;
-
-        // 2. If admin route, check admin status (customize this logic)
-        let isAdmin = false;
-        if (session && adminOnly) {
-          const { data: { user } } = await supabase.auth.getUser();
-          // Example admin check - adjust based on your auth system
-          isAdmin = user?.email?.endsWith('@finaccosolutions.com') || false;
+        if (error || !session) {
+          if (mounted) {
+            setAuthState({
+              checked: true,
+              isAuthenticated: false,
+              isAdmin: false,
+            });
+          }
+          return;
         }
 
-        setAuthState({
-          checked: true,
-          isAuthenticated: !!session,
-          isAdmin,
-        });
+        // Check admin status if needed
+        let isAdmin = false;
+        if (session && adminOnly) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single();
+          isAdmin = !!profile?.is_admin;
+        }
+
+        if (mounted) {
+          setAuthState({
+            checked: true,
+            isAuthenticated: !!session,
+            isAdmin,
+          });
+        }
       } catch (error) {
         console.error('Auth check error:', error);
-        setAuthState({
-          checked: true,
-          isAuthenticated: false,
-          isAdmin: false,
-        });
+        if (mounted) {
+          setAuthState({
+            checked: true,
+            isAuthenticated: false,
+            isAdmin: false,
+          });
+        }
       }
     };
 
+    // Initial check
     checkAuth();
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || event === 'TOKEN_REFRESHED') {
+        checkAuth(); // Recheck auth state on these events
+      }
+    });
+
+    // Periodic session check (every 5 minutes)
+    const intervalId = setInterval(checkAuth, 5 * 60 * 1000);
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      clearInterval(intervalId);
+    };
   }, [adminOnly]);
 
   if (!authState.checked) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   if (!authState.isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Store the current location to redirect back after login
+    return <Navigate to="/auth" state={{ returnTo: location.pathname }} replace />;
   }
 
   if (adminOnly && !authState.isAdmin) {
