@@ -17,6 +17,7 @@ const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) =>
 
   useEffect(() => {
     let mounted = true;
+    let sessionCheckInterval: NodeJS.Timeout;
 
     const checkAuth = async () => {
       try {
@@ -68,18 +69,26 @@ const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) =>
 
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || event === 'TOKEN_REFRESHED') {
-        checkAuth(); // Recheck auth state on these events
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        if (mounted) {
+          setAuthState({
+            checked: true,
+            isAuthenticated: false,
+            isAdmin: false,
+          });
+        }
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        checkAuth(); // Recheck auth state
       }
     });
 
-    // Periodic session check (every 5 minutes)
-    const intervalId = setInterval(checkAuth, 5 * 60 * 1000);
+    // Set up periodic session check
+    sessionCheckInterval = setInterval(checkAuth, 5 * 60 * 1000); // Check every 5 minutes
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      clearInterval(intervalId);
+      clearInterval(sessionCheckInterval);
     };
   }, [adminOnly]);
 
