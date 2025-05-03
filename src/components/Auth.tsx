@@ -75,13 +75,28 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
 
   useEffect(() => {
     // Check existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        onAuthSuccess();
-        navigate(returnUrl || '/');
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error checking session:', error);
+        return;
       }
-    });
-  
+      
+      if (session?.user) {
+        // Verify the session is still valid
+        const { data: { session: refreshedSession }, error: refreshError } = 
+          await supabase.auth.refreshSession();
+          
+        if (!refreshError && refreshedSession) {
+          onAuthSuccess();
+          navigate(returnUrl || '/');
+        }
+      }
+    };
+
+    checkSession();
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
@@ -89,8 +104,10 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
         navigate(returnUrl || '/');
       }
     });
-  
-    return () => subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate, onAuthSuccess, returnUrl]);
 
   const validateEmail = (email: string): boolean => {
@@ -554,3 +571,5 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, returnUrl }) => {
 };
 
 export default Auth;
+
+export default Auth

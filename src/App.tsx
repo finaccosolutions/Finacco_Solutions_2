@@ -107,6 +107,23 @@ const HomePage = () => (
 function App() {
   useEffect(() => {
     document.title = 'Finacco Solutions | Financial & Tech Services';
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        // Session was refreshed, no need to redirect
+        return;
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        // Only redirect on explicit sign out
+        navigate('/');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
