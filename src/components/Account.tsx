@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, startSessionRefresh, stopSessionRefresh, clearSession } from '../lib/supabase';
+import { supabase, startSessionRefresh, stopSessionRefresh, clearSession, checkSession } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Link, useNavigate } from 'react-router-dom';
 import { Home, Loader2, Save, AlertCircle, LogOut, Settings } from 'lucide-react';
@@ -33,31 +33,20 @@ const Account = () => {
         setLoading(true);
         setError(null);
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        if (!session) {
+        const { session, error: sessionError } = await checkSession();
+        if (sessionError || !session) {
           await clearSession();
           navigate('/auth');
           return;
         }
 
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
-
-        if (!user) {
-          await clearSession();
-          navigate('/auth');
-          return;
-        }
-
-        setUser(user);
+        setUser(session.user);
         startSessionRefresh();
 
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, email, full_name, phone, is_admin, created_at, updated_at')
-          .eq('id', user.id)
+          .select('*')
+          .eq('id', session.user.id)
           .single();
 
         if (profileError) {
@@ -66,10 +55,10 @@ const Account = () => {
               .from('profiles')
               .insert([
                 {
-                  id: user.id,
-                  email: user.email,
-                  full_name: user.user_metadata.full_name || '',
-                  phone: user.user_metadata.phone || '',
+                  id: session.user.id,
+                  email: session.user.email,
+                  full_name: session.user.user_metadata.full_name || '',
+                  phone: session.user.user_metadata.phone || '',
                   is_admin: false
                 }
               ])
@@ -105,8 +94,17 @@ const Account = () => {
 
     getUser();
 
+    // Add visibility change listener
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        getUser(); // Refresh data when page becomes visible
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       stopSessionRefresh();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [navigate]);
 
@@ -117,7 +115,10 @@ const Account = () => {
     setSuccess(null);
 
     try {
-      if (!user) throw new Error('No user found');
+      const { session } = await checkSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
 
       const { error: updateError } = await supabase
         .from('profiles')
@@ -126,7 +127,7 @@ const Account = () => {
           phone: formData.phone,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', session.user.id);
 
       if (updateError) throw updateError;
 

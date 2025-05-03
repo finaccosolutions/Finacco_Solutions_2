@@ -17,6 +17,7 @@ import AdminLogin from './pages/AdminLogin';
 import DocumentTemplates from './pages/DocumentTemplates';
 import CreateDocument from './pages/CreateDocument';
 import DocumentTemplatesAdmin from './pages/admin/DocumentTemplatesAdmin';
+import { startSessionRefresh, stopSessionRefresh, setupVisibilityChangeHandler } from './lib/supabase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -105,8 +106,47 @@ const HomePage = () => (
 );
 
 function App() {
+
+  useEffect(() => {
+    // Start automatic session refresh
+    startSessionRefresh();
+    // Set up visibility change handler
+    const cleanupVisibilityHandler = setupVisibilityChangeHandler();
+
+    return () => {
+      // Cleanup on unmount
+      stopSessionRefresh();
+      cleanupVisibilityHandler();
+    };
+  }, []);
+  
   useEffect(() => {
     document.title = 'Finacco Solutions | Financial & Tech Services';
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          // This will trigger the onAuthStateChange listeners
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase.auth.refreshSession();
+        }
+      });
+    }, 30 * 60 * 1000); // 30 minutes
+
+    return () => clearInterval(interval);
   }, []);
 
   return (

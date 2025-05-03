@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { supabase, checkSession } from '../lib/supabase';
+import { supabase, checkSession, startSessionRefresh, stopSessionRefresh, setupVisibilityChangeHandler } from '../lib/supabase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -36,11 +36,13 @@ const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) =>
         // Check admin status if needed
         let isAdmin = false;
         if (session && adminOnly) {
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('is_admin')
             .eq('id', session.user.id)
             .single();
+
+          if (profileError) throw profileError;
           isAdmin = !!profile?.is_admin;
         }
 
@@ -67,25 +69,29 @@ const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) =>
     checkAuth();
 
     // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || event === 'TOKEN_REFRESHED') {
-        checkAuth(); // Recheck auth state on these events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED', 'USER_DELETED'].includes(event)) {
+        await checkAuth();
       }
     });
 
-    // Periodic session check (every 5 minutes)
-    const intervalId = setInterval(checkAuth, 5 * 60 * 1000);
+    // Set up visibility change handler
+    const cleanupVisibilityHandler = setupVisibilityChangeHandler();
+
+    // Start session refresh
+    startSessionRefresh();
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      clearInterval(intervalId);
+      cleanupVisibilityHandler();
+      stopSessionRefresh();
     };
   }, [adminOnly]);
 
   if (!authState.checked) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -93,7 +99,7 @@ const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) =>
 
   if (!authState.isAuthenticated) {
     // Store the current location to redirect back after login
-    return <Navigate to="/auth" state={{ returnTo: location.pathname }} replace />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   if (adminOnly && !authState.isAdmin) {

@@ -3,124 +3,68 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const domain = window.location.origin;
+let sessionRefreshInterval: number | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true, // Enable session persistence
-    autoRefreshToken: true, // Enable automatic token refresh
-    detectSessionInUrl: true,
-    storage: window.localStorage, // Use localStorage for session storage
-    storageKey: 'supabase.auth.token',
-    flowType: 'pkce',
-    debug: import.meta.env.DEV,
-    retryAttempts: 3,
-    redirectTo: `${domain}/auth/callback`,
+export const checkSession = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error('Error checking session:', error.message);
+    return null;
   }
-});
+  return session;
+};
 
-// Enhanced session checker with better error handling and refresh logic
-export const checkSession = async (retries = 3): Promise<{ session: any; error: any }> => {
-  let attempt = 0;
+export const clearSession = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Error clearing session:', error.message);
+    return false;
+  }
+  stopSessionRefresh();
+  return true;
+};
 
-  const attemptCheck = async (): Promise<{ session: any; error: any }> => {
-    try {
-      // First try to get the current session
-      const { data: { session }, error } = await supabase.auth.getSession();
+export const startSessionRefresh = () => {
+  // Clear any existing interval
+  if (sessionRefreshInterval) {
+    clearInterval(sessionRefreshInterval);
+  }
 
-      // If there's an error or no session, try to refresh
-      if (error || !session) {
-        if (attempt < retries) {
-          attempt++;
-          
-          // Try to refresh the session
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          
-          // If refresh successful, return the new session
-          if (!refreshError && refreshData.session) {
-            return { session: refreshData.session, error: null };
-          }
-          
-          // If refresh failed but we have retries left, wait and try again
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-          return attemptCheck();
+  // Set up new interval to refresh session every 30 minutes
+  sessionRefreshInterval = setInterval(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        supabase.auth.refreshSession();
+      }
+    });
+  }, 30 * 60 * 1000) as unknown as number; // 30 minutes
+};
+
+export const stopSessionRefresh = () => {
+  if (sessionRefreshInterval) {
+    clearInterval(sessionRefreshInterval);
+    sessionRefreshInterval = null;
+  }
+};
+
+export const setupVisibilityChangeHandler = () => {
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase.auth.refreshSession();
         }
-        
-        // If we're out of retries, clear the session and storage
-        await clearSession();
-        return { 
-          session: null, 
-          error: error || new Error('Session expired and refresh failed') 
-        };
-      }
-
-      // Session exists and is valid
-      return { session, error: null };
-    } catch (error) {
-      if (attempt < retries) {
-        attempt++;
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-        return attemptCheck();
-      }
-      
-      // If all retries failed, clear the session
-      await clearSession();
-      console.error('Session check failed after retries:', error);
-      return { 
-        session: null, 
-        error: error instanceof Error ? error : new Error('Session check failed') 
-      };
+      });
     }
   };
 
-  return attemptCheck();
-};
-
-// Clear session and storage
-export const clearSession = async () => {
-  try {
-    await supabase.auth.signOut();
-    window.localStorage.removeItem('supabase.auth.token');
-    stopSessionRefresh();
-  } catch (error) {
-    console.error('Error clearing session:', error);
-  }
-};
-
-// Add session refresh interval
-let refreshInterval: number | null = null;
-
-// Start periodic session refresh
-export const startSessionRefresh = () => {
-  if (refreshInterval) {
-    stopSessionRefresh(); // Clear existing interval if any
-  }
+  document.addEventListener('visibilitychange', handleVisibilityChange);
   
-  // Check session every 4 minutes
-  refreshInterval = window.setInterval(async () => {
-    const { error } = await checkSession();
-    if (error) {
-      await clearSession();
-      window.location.href = '/auth';
-    }
-  }, 4 * 60 * 1000);
-
-  // Also check immediately
-  checkSession().catch(async (error) => {
-    console.error('Initial session check failed:', error);
-    await clearSession();
-    window.location.href = '/auth';
-  });
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
 };
 
-// Stop session refresh
-export const stopSessionRefresh = () => {
-  if (refreshInterval) {
-    window.clearInterval(refreshInterval);
-    refreshInterval = null;
-  }
-};
+export type Database = any; // Replace with your database types
